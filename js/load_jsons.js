@@ -59,15 +59,18 @@ function fetch_keys(device) {
     firebase.initializeApp(config);
   }
 
+  g_db_keys = []
   g_db_ref = firebase.database().ref('jerryscript/'+ device);
 
   axios.get(g_db_ref.toString() + '.json?shallow=true')
   .then(function (res) {
-    g_db_keys = Object.keys(res.data).sort();
-    var pageCount = g_db_keys.length / g_page_step;
-    render_pagination(g_db_keys.length, g_page_step);
-    g_db_keys.reverse();
-    render_testruns(0, g_page_step);
+    if (res.data) {
+      g_db_keys = Object.keys(res.data).sort();
+      var pageCount = g_db_keys.length / g_page_step;
+      render_pagination(g_db_keys.length, g_page_step);
+      g_db_keys.reverse();
+      render_testruns(0, g_page_step);
+    }
     fetch_chart_data(device);
   });
 }
