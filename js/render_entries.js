@@ -171,7 +171,10 @@ function _render_tests_table(uid, tests, earlier_tests_map) {
     if (can_compare_current) {
       for (var key in earlier_tests_map) {
         var earlier_test = earlier_tests_map[key];
-        if (earlier_test.name == test.name && earlier_test.result == "pass" && !isNaN(parseInt(earlier_test.memory))) {
+        if (earlier_test.name == test.name
+            && earlier_test.result == "pass"
+            && !isNaN(parseInt(earlier_test.memory))
+            && parseInt(earlier_test.memory) > 0) {
           var diff = test.memory - earlier_test.memory;
           var percent = (diff / earlier_test.memory) * 100.0;
           raw_html += (diff >= 0 ? '+' : '') + percent.toFixed(1) + '%';
