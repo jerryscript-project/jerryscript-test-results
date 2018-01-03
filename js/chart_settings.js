@@ -94,9 +94,8 @@ function generate_chart(data, type) {
           '<tr class="c3-tooltip-name--binary">' +
             '<td class="name">' +
               '<span style="background-color: ' + color(d[0]) + '"></span>' +
-              d[0].name +
             '</td>' +
-            '<td class="value">' + ((d[0].value === null) ? 'N/A' : d[0].value) + '</td>' +
+            '<td class="value">' + ((d[0].value === null) ? 'N/A' : d[0].value) + ' KB</td>' +
           '</tr>' +
           '<tr class="c3-tooltip-name--commit">' +
             '<td class="name">commit</td>' +
