@@ -40,12 +40,12 @@ function init_datepickers(first_date, last_date) {
 function generate_chart(data, type) {
   var line_color = '#1f77b4';
   var type_key = 'bin.total';
-  var label_name = 'binary size';
+  var label_name = 'binary size (KB)';
 
   if (type === 'memory') {
     line_color = '#ff7f0e';
     type_key = 'average_memory';
-    label_name = 'average memory';
+    label_name = 'average memory consumption (KB)';
   }
 
   var chart = c3.generate({
@@ -165,6 +165,11 @@ function update_chart(from, to) {
       var data = testcase.val();
       data.date = iso_date(data.date);
 
+      var bin_total = parseInt(Number(data.bin.total));
+      // Convert it to kilobytes
+      data.bin.total = (bin_total / 1024).toFixed(1);
+
+
       var tests = data.tests;
       var memory_counter = 0;
       data.average_memory = 0;
@@ -178,8 +183,11 @@ function update_chart(from, to) {
         }
       });
 
-      if (memory_counter > 0)
-        data.average_memory = (data.average_memory / memory_counter).toFixed();
+      if (memory_counter > 0) {
+        data.average_memory = (data.average_memory / memory_counter);
+        // Convert it to kilobytes
+        data.average_memory = (data.average_memory / 1024).toFixed(2);
+      }
 
       slice.push(data);
     });
