@@ -1,4 +1,4 @@
-var dataset = [];
+var charts = [];
 
 function init_datepickers(first_date, last_date) {
   var picker_options = {
@@ -112,6 +112,8 @@ function generate_chart(data, type, y_axis_min) {
       }
     }
   });
+
+  charts.push(chart);
 }
 
 function iso_date(date) {
@@ -119,22 +121,14 @@ function iso_date(date) {
 }
 
 function fetch_chart_data(device) {
-  generate_chart([], 'binary', 0);
-  generate_chart([], 'memory', 0);
-
-  dataset = [];
-
   if (!firebase.apps.length) {
     return;
   }
 
-  var last_element = "";
-  var first_element = "";
-
   g_db_ref.child(g_db_keys[g_db_keys.length - 1]).once('value').then(function(snapshot) {
     first_element = snapshot.val();
     g_db_ref.child(g_db_keys[0]).once('value').then(function(snapshot) {
-      last_element = snapshot.val();
+      var last_element = snapshot.val();
 
       init_datepickers(iso_date(first_element.date), iso_date(last_element.date));
 
@@ -206,6 +200,9 @@ function update_chart(from, to) {
 
     generate_chart(slice, 'binary', (min_bin_size / 2).toFixed());
     generate_chart(slice, 'memory', (min_avg_memory / 2).toFixed());
+
+
+    render_done('chart');
   });
 }
 
