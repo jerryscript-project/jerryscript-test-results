@@ -1,19 +1,49 @@
+var rendered_sections = [];
 var g_page_step = 10;
 var g_db_keys = [];
 var g_db_ref = "";
 
 $(document).ready(function() {
-    // $.ajaxSetup({ cache: false });
-    change_device("stm32");
+  var view = get_parameter_by_name('view');
+
+  // Set home as a default view.
+  if (!(views.includes(view))) {
+    view = 'home';
+  }
+
+  change_view(view);
 });
 
-function change_device(device) {
+function change_view(target) {
+  if (target === 'home') {
+    $('#home-info').show();
+    $('#target-info').hide();
+  } else {
+    $('#home-info').hide();
+    $('#target-info').show();
+
+    $('#css-dynamic').attr('href', 'css/device_' + target + '.css');
+
+    clear();
+    set_info(target);
+    fetch_keys(target);
+  }
+
   $('#navbar li').removeClass('active');
-  $('#show-' + device).addClass('active');
-  $('#css-dynamic').attr('href', 'css/device_' + device + '.css');
-  clear();
-  set_info(device);
-  fetch_keys(device);
+  $('#show-' + target).addClass('active');
+}
+
+function render_done(section) {
+  rendered_sections.push(section);
+
+  if (rendered_sections.length === 2) {
+    $('#target-info-placeholder').hide();
+    $('.loading-part').show();
+
+    charts.forEach(function(chart) {
+      chart.flush();
+    });
+  }
 }
 
 function clear() {
@@ -46,19 +76,6 @@ function set_info(device) {
 }
 
 function fetch_keys(device) {
-  var config = {
-    apiKey: "AIzaSyDMgyPr0V49Rdf5ODAU9nLY02ZGEUNoxiM",
-    authDomain: "remote-testrunner.firebaseapp.com",
-    databaseURL: "https://remote-testrunner.firebaseio.com",
-    projectId: "remote-testrunner",
-    storageBucket: "remote-testrunner.appspot.com",
-    messagingSenderId: "183582255751"
-  };
-
-  if (!firebase.apps.length) {
-    firebase.initializeApp(config);
-  }
-
   g_db_keys = []
   g_db_ref = firebase.database().ref('jerryscript/'+ device);
 
@@ -73,4 +90,9 @@ function fetch_keys(device) {
     }
     fetch_chart_data(device);
   });
+}
+
+function get_parameter_by_name(name) {
+  var match = RegExp('[?&]' + name + '=([^&]*)').exec(window.location.search);
+  return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
 }
