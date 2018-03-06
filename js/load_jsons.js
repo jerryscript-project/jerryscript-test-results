@@ -54,7 +54,7 @@ function clear() {
 
 function set_info(device) {
   switch (device) {
-    case "stm32":
+    case "stm32f4dis":
       $("#info-device")
         .attr('href', "http://www.st.com/en/evaluation-tools/stm32f4discovery.html")
         .text("STM32F4-Discovery");
@@ -65,31 +65,42 @@ function set_info(device) {
       break;
     case "rpi2":
       $("#info-device")
-        .attr('href', "https://www.raspberrypi.org/test_cases/raspberry-pi-2-model-b/")
+        .attr('href', "https://www.raspberrypi.org/products/raspberry-pi-2-model-b/")
         .text("Raspberry Pi 2 Model B");
       $("#info-platform")
         .attr('href', "https://www.raspbian.org/")
         .text("Raspbian Jessie");
       $("#info-image").attr('src', "img/raspberrypi2.jpg");
       break;
-    }
+    case "artik053":
+      $("#info-device")
+        .attr('href', "https://developer.artik.io/documentation/artik-05x/")
+        .text("Artik 053");
+      $("#info-platform")
+        .attr('href', "https://github.com/Samsung/TizenRT")
+        .text("TizenRT");
+      $("#info-image").attr('src', "img/artik053.jpg");
+      break;
+  }
 }
 
 function fetch_keys(device) {
   g_db_keys = []
+
   g_db_ref = firebase.database().ref('jerryscript/'+ device);
 
   axios.get(g_db_ref.toString() + '.json?shallow=true')
-  .then(function (res) {
-    if (res.data) {
-      g_db_keys = Object.keys(res.data).sort();
-      var pageCount = g_db_keys.length / g_page_step;
-      render_pagination(g_db_keys.length, g_page_step);
-      g_db_keys.reverse();
-      render_testruns(0, g_page_step - 1);
-    }
-    fetch_chart_data(device);
-  });
+    .then(function (res) {
+      if (res.data) {
+        g_db_keys = Object.keys(res.data).sort();
+        var pageCount = g_db_keys.length / g_page_step;
+        render_pagination(g_db_keys.length, g_page_step);
+        g_db_keys.reverse();
+        render_testruns(0, g_page_step - 1);
+      }
+      fetch_chart_data(device);
+
+    });
 }
 
 function get_parameter_by_name(name) {

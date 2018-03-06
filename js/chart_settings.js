@@ -38,22 +38,13 @@ function init_datepickers(first_date, last_date) {
 }
 
 function generate_chart(data, type, y_axis_min) {
-  var line_color = '#1f77b4';
-  var type_key = 'bin.total';
-  var label_name = 'binary size (KB)';
+  var typedColor = ['#ff7f0e'];
 
   if (type === 'memory') {
-    line_color = '#ff7f0e';
-    type_key = 'average_memory';
-    label_name = 'average memory consumption (KB)';
-  }
+    var type_key = 'average_memory';
+    var label_name = 'average memory consumption (KB)';
 
-  var chart = c3.generate({
-    bindto: '#' + type + '-chart',
-    size: {
-      height: 220
-    },
-    data: {
+    var typedData = {
       json: data,
       names: {
         [type_key] : label_name
@@ -70,7 +61,44 @@ function generate_chart(data, type, y_axis_min) {
         enabled: true,
         multiple: false
       }
+    };
+  } else if (type === 'binary') {
+    typedColor.push('#aec7e8');
+    var target_profile = 'bin.target_binary_size';
+    var minimal_profile = 'bin.minimal_binary_size';
+
+    var label_name_first = 'target-profile binary size (KB)';
+    var label_name_second = 'minimal-profile binary size (KB)';
+
+    var typedData = {
+      json: data,
+      names: {
+        [target_profile] : label_name_first,
+        [minimal_profile] : label_name_second,
+      },
+      keys: {
+        x: 'date',
+        value: [target_profile, minimal_profile],
+      },
+      onclick: function(d, element) {
+        chart.unselect([type],[d.index]);
+        window.open('https://github.com/jerryscript-project/jerryscript/commit/' + data[d.index].submodules.jerryscript.commit);
+      },
+      selection: {
+        enabled: true,
+        multiple: false
+      }
+    };
+  } else {
+    console.error('Unsupported type in generate_chart function!')
+  }
+
+  var chart = c3.generate({
+    bindto: '#' + type + '-chart',
+    size: {
+      height: 220
     },
+    data: typedData,
     axis: {
       x: {
         type: 'timeseries',
@@ -80,13 +108,12 @@ function generate_chart(data, type, y_axis_min) {
           format: '%Y-%m-%d'
         }
       },
-      y : {
+      y: {
         min: y_axis_min
       }
-
     },
     color: {
-      pattern: [line_color]
+      pattern: typedColor
     },
     tooltip: {
       contents: function (d, defaultTitleFormat, defaultValueFormat, color) {
@@ -99,9 +126,17 @@ function generate_chart(data, type, y_axis_min) {
             '<td class="name">' +
               '<span style="background-color: ' + color(d[0]) + '"></span>' +
             '</td>' +
-            '<td class="value">' + ((d[0].value === null) ? 'N/A' : d[0].value) + ' KB</td>' +
-          '</tr>' +
-          '<tr class="c3-tooltip-name--commit">' +
+            '<td class="value">' + ((d[0].value === null) ? 'n/a' : d[0].value.toFixed(1)) + ' KB</td>' +
+          '</tr>';
+          if (type === 'binary') {
+            tt += '<tr class="c3-tooltip-name--binary">' +
+            '<td class="name">' +
+              '<span style="background-color: ' + color(d[1]) + '"></span>' +
+            '</td>' +
+            '<td class="value">' + ((d[1].value === null) ? 'n/a' : d[1].value.toFixed(1)) + ' KB</td>' +
+          '</tr>';
+          }
+          tt += '<tr class="c3-tooltip-name--commit">' +
             '<td class="name">commit</td>' +
             '<td class="value">' + data[d[0].index].submodules.jerryscript.commit.substring(0, 7) + '</td>' +
           '</tr>' +
@@ -121,12 +156,12 @@ function iso_date(date) {
 }
 
 function fetch_chart_data(device) {
-  if (!firebase.apps.length) {
+  if (!firebase.apps.length || g_db_keys.length <= 0) {
     return;
   }
 
   g_db_ref.child(g_db_keys[g_db_keys.length - 1]).once('value').then(function(snapshot) {
-    first_element = snapshot.val();
+    var first_element = snapshot.val();
     g_db_ref.child(g_db_keys[0]).once('value').then(function(snapshot) {
       var last_element = snapshot.val();
 
@@ -152,57 +187,81 @@ function fetch_chart_data(device) {
 }
 
 function update_chart(from, to) {
-
   var slice = [];
-  var d_to = new Date(to);
-  d_to.setDate(d_to.getDate() + 1);
-  g_db_ref.orderByChild('date').startAt(iso_date(from)).endAt(iso_date(d_to)).once("value", function(testcases) {
+  var date_to = new Date(to);
+  date_to.setDate(date_to.getDate() + 1);
+  g_db_ref.orderByChild('date').startAt(iso_date(from)).endAt(iso_date(date_to)).once("value", function(testcases) {
     var min_avg_memory = 0;
     var min_bin_size = 0;
 
     testcases.forEach(function (testcase) {
+      var average_memory = 0;
+      var memory_counter = 0;
       var data = testcase.val();
       data.date = iso_date(data.date);
 
-      var bin_total = parseInt(Number(data.bin.total));
-      // Convert it to kilobytes
-      data.bin.total = (bin_total / 1024).toFixed(1);
+      var target_data = parseInt(data.bin['target-profile']['data']) || 0;
+      var target_rodata = parseInt(data.bin['target-profile']['rodata']) || 0;
+      var target_text = parseInt(data.bin['target-profile']['text']) || 0;
 
-      var tests = data.tests;
-      var memory_counter = 0;
-      data.average_memory = 0;
+      var target_binary_size = target_data + target_rodata + target_text;
 
-      tests.forEach(function(testname) {
-        if (testname.memory){
-          if (!isNaN(testname.memory)) {
+      data.bin.target_binary_size = NaN;
+
+      if (target_binary_size > 0) {
+        data.bin.target_binary_size = (target_binary_size / 1024).toFixed(1);
+      }
+
+      var minimal_data = parseInt(data.bin['minimal-profile']['data']) || 0;
+      var minimal_rodata = parseInt(data.bin['minimal-profile']['rodata']) || 0;
+      var minimal_text = parseInt(data.bin['minimal-profile']['text']) || 0;
+
+      var minimal_binary_size = minimal_data + minimal_rodata + minimal_text;
+
+      data.bin.minimal_binary_size = NaN;
+
+      if (minimal_binary_size > 0) {
+        data.bin.minimal_binary_size = (minimal_binary_size / 1024).toFixed(1);
+      }
+
+      data.tests.forEach(function(testname) {
+        if (testname.hasOwnProperty('memstat')) {
+          var jerry_heap = parseInt(testname.memstat['heap-jerry']) || 0;
+          var system_heap = parseInt(testname.memstat['heap-system']) || 0;
+          var stack = parseInt(testname.memstat['stack']) || 0;
+
+          var total_memory = jerry_heap + system_heap + stack;
+          if (total_memory > 0) {
             memory_counter++;
-            data.average_memory += parseInt(testname.memory);
+            average_memory += total_memory;
           }
         }
+
       });
 
       if (memory_counter > 0) {
-        data.average_memory = (data.average_memory / memory_counter);
+        data.average_memory = average_memory / memory_counter;
         // Convert it to kilobytes
-        data.average_memory = (data.average_memory / 1024).toFixed(2);
+        data.average_memory = (data.average_memory / 1024).toFixed(1);
 
         if (min_avg_memory == 0 || min_avg_memory > data.average_memory) {
           min_avg_memory = data.average_memory;
         }
       }
 
-      if (min_bin_size == 0 || min_bin_size > data.bin.total) {
-        min_bin_size = data.bin.total;
+      if (min_bin_size == 0 || min_bin_size > data.bin.target_binary_size) {
+        min_bin_size = data.bin.target_binary_size;
       }
 
       slice.push(data);
     });
 
-    generate_chart(slice, 'binary', (min_bin_size / 2).toFixed());
-    generate_chart(slice, 'memory', (min_avg_memory / 2).toFixed());
+    y_axis_min = (min_bin_size / 2).toFixed();
+    generate_chart(slice, 'binary', y_axis_min);
 
+    y_axis_min = (min_avg_memory / 2).toFixed();
+    generate_chart(slice, 'memory', y_axis_min);
 
     render_done('chart');
   });
 }
-

@@ -18,20 +18,21 @@ function render_testrun(uid, testrun, earlier_testrun) {
     raw_html += 'fail';
   else
     raw_html += 'pass';
-  raw_html += '">';
 
+  raw_html += '">';
   raw_html += '<div class="morebtn"><i class="fa fa-angle-down fa-fw" aria-hidden="true"></i></div>';
   raw_html += '<div class="date">' + testrun.date.substr(0, 10) + '</div>';
   raw_html += '<div class="preview">';
 
   raw_html += _render_summary(passed, failed, skipped);
-  raw_html += _render_binary(testrun.bin);
+  raw_html += _render_binary(testrun.bin['target-profile']);
   raw_html += _render_submodules(testrun.submodules);
 
   raw_html += '</div>'; // top-div
   raw_html += '<div>';
 
   raw_html += _render_tests_table(uid, testrun.tests, earlier_testrun.tests);
+
   raw_html += '</div>'; // bottom-div
   raw_html += '</div>';
 
@@ -53,9 +54,20 @@ function _render_binary(binary) {
     return parseInt(Number(value)) == value;
   }
 
+  var bin_text = parseInt(binary.text) || 0;
+  var bin_rodata = parseInt(binary.rodata) || 0;
+  var bin_data = parseInt(binary.data) || 0;
+
+  var bin_size = bin_text + bin_rodata + bin_data;
+
+  if (bin_size == 0)
+  {
+    bin_size = NaN;
+  }
+
   var raw_html = '<div class="binary"><table>';
-  raw_html += '<tr><td class="sumlabel" title="Total binary size">binary</td><td class="mono">'
-    + binary.total + (isInt(binary.total) ? ' B' : '') + '</td></tr>';
+  raw_html += '<tr><td class="sumlabel" title="Total binary size">binary size</td><td class="mono">'
+    + bin_size + (isInt(bin_size) ? ' B' : '') + '</td></tr>';
   raw_html += '<tr><td>text</td><td class="mono">' + binary.text + (isInt(binary.text) ? ' B' : '') + '</td></tr>';
   raw_html += '<tr><td>bss</td><td class="mono">' + binary.bss + (isInt(binary.bss) ? ' B' : '') + '</td></tr>';
   raw_html += '<tr><td>data</td><td class="mono">' + binary.data + (isInt(binary.data) ? ' B' : '') + '</td></tr>';
@@ -69,19 +81,22 @@ var g_submod_nice_name = {
   "iotjs": "IoT.js",
   "jerryscript": "JerryScript",
   "nuttx": "NuttX",
-  "apps": "NuttX Apps"
+  "nuttx-apps": "NuttX Apps",
+  "tizenrt": "TizenRT"
 };
 var g_submod_baseurl = {
   "iotjs": "https://github.com/Samsung/iotjs/commit/",
   "jerryscript": "https://github.com/jerryscript-project/jerryscript/commit/",
   "nuttx": "https://bitbucket.org/nuttx/nuttx/commits/",
-  "apps": "https://bitbucket.org/nuttx/apps/commits/"
+  "nuttx-apps": "https://bitbucket.org/nuttx/apps/commits/",
+  "tizenrt": "https://github.com/Samsung/TizenRT/commit/"
 };
 
 var g_submod_order = [
   "jerryscript",
   "nuttx",
-  "apps"
+  "nuttx-apps",
+  "tizenrt"
 ];
 
 function _render_submodules(submodules) {
@@ -89,6 +104,7 @@ function _render_submodules(submodules) {
   $.each(g_submod_order, function(idx, name) {
     if (!(name in submodules))
       return;
+
     var submod = submodules[name];
     raw_html += '<tr class="submod-row submod-' + name + '">';
     raw_html += '<td>' + g_submod_nice_name[name] + '</td>';
@@ -119,12 +135,24 @@ function _render_showhide() {
 
 function _render_tests_table(uid, tests, earlier_tests_map) {
   var raw_html = '<div class="tests">';
-  raw_html += '<table><thead><tr>'
-    + '<td>Test</td><td>Result</td><td>Memory</td><td>Change</td>'
-    + '<td>Output/Reason' + _render_showhide() + '</td>'
-    + '</tr></thead></table>';
-
-  raw_html += '</div><div class="tests"><table>';
+  raw_html += '<table>'
+  raw_html += '<thead>'
+  raw_html += '<tr>'
+  raw_html +=  _render_showhide()
+  raw_html += '</tr>'
+  raw_html += '<tr>'
+  raw_html += '<th rowspan="2">Test</th>'
+  raw_html += '<th rowspan="2">Result</th>'
+  raw_html += '<th colspan="3">Memory</th>'
+  raw_html += '<th rowspan="2">Change</th>'
+  raw_html += '<th rowspan="2">Output/Reason</th>'
+  raw_html += '</tr>'
+  raw_html += '<tr>'
+  raw_html += '<th>Jerry</th>'
+  raw_html += '<th>Malloc</th>'
+  raw_html += '<th>Stack</th>'
+  raw_html += '</tr>'
+  raw_html += '</thead>'
 
   $.each(tests, function(idx, test) {
     var row_class = "fail";
@@ -140,52 +168,97 @@ function _render_tests_table(uid, tests, earlier_tests_map) {
 
     if (test.hasOwnProperty("reason")) {
       if (text)
-    text += '<br>';
-
-    text += test.reason;
+        text += '<br>';
+      text += test.reason;
     }
 
     raw_html += '<tr class="' + row_class + '">';
     raw_html += '<td>' + test.name + '</td>';
     raw_html += '<td>' + test.result + '</td>';
 
-    raw_html += '<td class="mono">';
-    if (test.hasOwnProperty("memory"))
-      raw_html += test.memory + " B";
+    if (test.hasOwnProperty('memstat')) {
+      if (test.memstat['heap-jerry'] != 'n/a') {
+        raw_html += '<td class="mono">' + test.memstat['heap-jerry'] + ' B</td>';
+      } else {
+        raw_html += '<td class="mono">' + test.memstat['heap-jerry'] + '</td>';
+      }
+
+      if (test.memstat['heap-system'] != 'n/a') {
+        raw_html += '<td class="mono">' + test.memstat['heap-system'] + ' B</td>';
+      } else {
+        raw_html += '<td class="mono">' + test.memstat['heap-system'] + '</td>';
+      }
+
+      if (test.memstat['stack'] != 'n/a') {
+        raw_html += '<td class="mono">' + test.memstat['stack'] + ' B</td>';
+      } else {
+        raw_html += '<td class="mono">' + test.memstat['stack'] + '</td>';
+      }
+    }
     else
-      raw_html += "n/a";
-      raw_html += '</td>';
+    {
+      raw_html += '<td class="mono">n/a</td>';
+      raw_html += '<td class="mono">n/a</td>';
+      raw_html += '<td class="mono">n/a</td>';
+    }
 
     raw_html += '<td class="mono">';
+
+    var total_memory = NaN;
+    if (test.hasOwnProperty("memstat")) {
+      var jerry_heap = parseInt(test.memstat['heap-jerry']) || 0;
+      var system_heap = parseInt(test.memstat['heap-system']) || 0;
+      var stack = parseInt(test.memstat['stack']) || 0;
+      var sum_memory = jerry_heap + system_heap + stack;
+
+      if (sum_memory > 0) {
+        total_memory = sum_memory;
+      }
+    }
 
     var can_compare_current = (
-      test.hasOwnProperty("memory") &&
       test.result == "pass" &&
-      !isNaN(parseInt(test.memory))
+      !isNaN(total_memory)
     );
 
     if (can_compare_current) {
+      var compared = false;
       for (var key in earlier_tests_map) {
         var earlier_test = earlier_tests_map[key];
+        var earlier_total_memory = NaN;
+        if (earlier_test.hasOwnProperty("memstat")) {
+          var earlier_jerry_heap = parseInt(earlier_test.memstat['heap-jerry']) || 0;
+          var earlier_system_heap = parseInt(earlier_test.memstat['heap-system']) || 0;
+          var earlier_stack = parseInt(earlier_test.memstat['stack']) || 0;
+          var sum_memory = earlier_jerry_heap + earlier_system_heap + earlier_stack;
+
+          if (sum_memory > 0) {
+            earlier_total_memory = sum_memory;
+          }
+        }
         if (earlier_test.name == test.name
             && earlier_test.result == "pass"
-            && !isNaN(parseInt(earlier_test.memory))
-            && parseInt(earlier_test.memory) > 0) {
-          var diff = test.memory - earlier_test.memory;
-          var percent = (diff / earlier_test.memory) * 100.0;
+            && earlier_total_memory > 0) {
+          var diff = total_memory - earlier_total_memory;
+          var percent = (diff / earlier_total_memory) * 100.0;
           raw_html += (diff >= 0 ? '+' : '') + percent.toFixed(1) + '%';
+          compared = true;
           break;
         }
       }
+      if (!compared)
+        raw_html += '<span class="light">n/a</span>'
     }
     else {
       raw_html += '<span class="light">n/a</span>'
     }
-    raw_html += '</td>';
 
+    raw_html += '</td>';
     raw_html += '<td>';
+
     var test_detail_id = uid + '_' + idx;
     raw_html += '<div id="' + test_detail_id + '">' + text;
+
     if (text.indexOf("<br>") !== -1) {
       raw_html += '<div class="morebtn"><i class="fa fa-angle-down fa-fw" aria-hidden="true"></i></div>';
     }
@@ -202,6 +275,7 @@ function _render_tests_table(uid, tests, earlier_tests_map) {
 
 function render_nochange(date) {
   var raw_html = '<div class="nochange">';
+
   raw_html += '<div>No change today in the repositories</div>';
   raw_html += '<div class="date">' + date.toISOString().substr(0, 10) + '</div>';
   raw_html += '</div>';
@@ -228,6 +302,7 @@ function add_nochange_between(from, until, container) {
 function render_testruns(idx, idx_end) {
   $("#testruns").empty();
   $("#loading").show();
+
   if (!firebase.apps.length) {
     return;
   }
@@ -266,62 +341,62 @@ function render_testruns(idx, idx_end) {
     .then(function (snaps) {
       snaps.forEach(function (snap) {
         testruns.push(snap.val());
-    });
-
-    var testruns_div = $("#testruns");
-    testruns_div.empty();
-
-    idx = 0;
-
-    var prev_testrun_date = date_floor(new Date(testruns[idx].date));
-    var first_date = date_floor(prev_element == "" ? new Date() : new Date(prev_element.date));
-    add_nochange_between(first_date, prev_testrun_date, testruns_div);
-
-    anim_idx = 0;
-    for (; idx <= idx_end; idx++) {
-      if (idx >= testruns.length)
-        break;
-
-      var testrun = testruns[idx];
-      var testrun_date = date_floor(new Date(testrun.date));
-      add_nochange_between(prev_testrun_date, testrun_date, testruns_div);
-      prev_testrun_date = testrun_date;
-
-      var testrun_id = "testrun_" + idx;
-      var next_testrun = (idx + 1) >= testruns.length ? { tests: {} } : testruns[idx + 1];
-      testruns_div.append(render_testrun(testrun_id, testrun, next_testrun));
-
-      var testrun_ref = "#" + testrun_id;
-      $(testrun_ref + " > .morebtn").click(function(ref) {
-        return function() {
-          $(ref).toggleClass('expanded');
-        }
-      }(testrun_ref));
-
-      $.each(testrun.tests, function(idx, test) {
-        var test_detail_ref = testrun_ref + '_' + idx;
-        $(test_detail_ref + " .morebtn").click(function(detail_ref) {
-          return function() {
-            $(detail_ref).toggleClass('expanded');
-          }
-        }(test_detail_ref));
       });
 
-      $(testrun_ref + " .showhide span:nth-child(2) input").click(function(ref) {
-        return function() {
-          $(ref + " tr.pass").toggleClass('hidden');
-        }
-      }(testrun_ref));
+      var testruns_div = $("#testruns");
+      testruns_div.empty();
 
-      $(testrun_ref + " .showhide span:nth-child(4) input").click(function(ref) {
-        return function() {
-          $(ref + " tr.skip").toggleClass('hidden');
-        }
-      }(testrun_ref));
+      idx = 0;
+      var prev_testrun_date = date_floor(new Date(testruns[idx].date));
+      var first_date = date_floor(prev_element == "" ? new Date() : new Date(prev_element.date));
+      add_nochange_between(first_date, prev_testrun_date, testruns_div);
 
-      $(testrun_ref + " .showhide span:nth-child(3) input").click(function(ref) {
-        return function() {
-          $(ref + " tr.fail").toggleClass('hidden');
+      anim_idx = 0;
+      for (; idx <= idx_end; idx++) {
+        if (idx >= testruns.length)
+          break;
+
+        var testrun = testruns[idx];
+        var testrun_date = date_floor(new Date(testrun.date));
+        add_nochange_between(prev_testrun_date, testrun_date, testruns_div);
+        prev_testrun_date = testrun_date;
+
+        var testrun_id = "testrun_" + idx;
+        var next_testrun = (idx + 1) >= testruns.length ? { tests: {} } : testruns[idx + 1];
+
+        testruns_div.append(render_testrun(testrun_id, testrun, next_testrun));
+
+        var testrun_ref = "#" + testrun_id;
+        $(testrun_ref + " > .morebtn").click(function(ref) {
+          return function() {
+            $(ref).toggleClass('expanded');
+          }
+        }(testrun_ref));
+
+        $.each(testrun.tests, function(idx, test) {
+          var test_detail_ref = testrun_ref + '_' + idx;
+          $(test_detail_ref + " .morebtn").click(function(detail_ref){
+            return function() {
+              $(detail_ref).toggleClass('expanded');
+            }
+          }(test_detail_ref));
+        });
+
+        $(testrun_ref + " .showhide span:nth-child(2) input").click(function(ref) {
+          return function() {
+            $(ref + " tr.pass").toggleClass('hidden');
+          }
+        }(testrun_ref));
+
+        $(testrun_ref + " .showhide span:nth-child(4) input").click(function(ref) {
+          return function() {
+            $(ref + " tr.skip").toggleClass('hidden');
+          }
+        }(testrun_ref));
+
+        $(testrun_ref + " .showhide span:nth-child(3) input").click(function(ref) {
+          return function() {
+            $(ref + " tr.fail").toggleClass('hidden');
         }
       }(testrun_ref));
     }
