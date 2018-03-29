@@ -39,12 +39,11 @@ function fetch_stats(tests) {
   for (const i in tests) {
     if (tests.hasOwnProperty(i)) {
       const element = tests[i];
-
       if (element.result === 'pass') {
         stats.pass++;
       } else if (element.result === 'skip') {
         stats.skip++;
-      } else if (element.result === 'fail') {
+      } else if (['fail', 'timeout'].includes(element.result)) {
         stats.fail++;
       }
     }
@@ -87,7 +86,7 @@ function render_project_target_col() {
 
   for (const i in data) {
     if (data.hasOwnProperty(i)) {
-      raw_html += '<div class="col-sm-6 col-md-6 col-lg-6 target-block">';
+      raw_html += '<div class="col-sm-4 col-md-4 col-lg-4 target-block">';
       raw_html += render_target_block_content(data[i]);
       raw_html += '</div>';
     }
