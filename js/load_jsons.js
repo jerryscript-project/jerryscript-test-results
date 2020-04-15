@@ -54,15 +54,6 @@ function clear() {
 
 function set_info(device) {
   switch (device) {
-    case "stm32f4dis":
-      $("#info-device")
-        .attr('href', "http://www.st.com/en/evaluation-tools/stm32f4discovery.html")
-        .text("STM32F4-Discovery");
-      $("#info-platform")
-        .attr('href', "http://nuttx.org/")
-        .text("NuttX");
-      $("#info-image").attr('src', "img/stm32f4_discovery.jpg");
-      break;
     case "rpi2":
       $("#info-device")
         .attr('href', "https://www.raspberrypi.org/products/raspberry-pi-2-model-b/")
